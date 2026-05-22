@@ -64,13 +64,9 @@ export default function TutorialOverlay() {
           ×
         </button>
         {(step === 1 || step === 2) && (
-          <video
-            src={`/tutorials/tutorial${step}.mp4`}
-            autoPlay
-            loop
-            muted
-            className="w-full aspect-video rounded-lg mb-4"
-          />
+          <div className="w-full aspect-video rounded-lg mb-4 bg-gray-100 dark:bg-surface-800 border border-gray-200 dark:border-surface-700 flex flex-col items-center justify-center">
+            <span className="text-gray-500 dark:text-gray-400 font-medium">Video tutorial coming soon</span>
+          </div>
         )}
         <h2 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
           {step === 0 && "Welcome to AlgoBuddy!"}
