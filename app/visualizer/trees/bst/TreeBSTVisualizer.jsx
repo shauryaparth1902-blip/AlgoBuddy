@@ -811,6 +811,7 @@ export default function TreeBSTVisualizer({ initialMode }) {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const currentStep = steps[currentStepIdx] || null;
