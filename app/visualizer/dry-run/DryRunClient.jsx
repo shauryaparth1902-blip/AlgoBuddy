@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Editor from "@monaco-editor/react";
+import { useTheme } from "next-themes";
 import { useUser } from "@/app/contexts/UserContext";
 import { useCollaboration } from "@/app/components/ui/useCollaboration";
 
@@ -348,14 +349,23 @@ function DataPreview({ title, values, variant = "array" }) {
   );
 }
 
+const MONACO_LANGUAGE_MAP = {
+  JavaScript: "javascript",
+  Python: "python",
+  "C++": "cpp",
+  Java: "java",
+};
+
 export default function DryRunClient() {
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === "dark";
   const { user } = useUser();
   const [language, setLanguage] = useState("JavaScript");
+  const monacoLanguage = MONACO_LANGUAGE_MAP[language] ?? "javascript";
   const [source, setSource] = useState(SAMPLES.JavaScript);
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(900);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [sessionTitle, setSessionTitle] = useState("Dry-run study room");
   const [sessionVisibility, setSessionVisibility] = useState("public");
   const [sessionPassword, setSessionPassword] = useState("");
@@ -423,17 +433,6 @@ export default function DryRunClient() {
     setStep(0);
     setPlaying(false);
   }, [source, language]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const root = document.documentElement;
-    const updateTheme = () => setIsDarkMode(root.classList.contains("dark"));
-    updateTheme();
-
-    const observer = new MutationObserver(updateTheme);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     if (!playing) return;

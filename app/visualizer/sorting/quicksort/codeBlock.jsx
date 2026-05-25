@@ -30,6 +30,10 @@ const numbers = [10, 7, 8, 9, 1, 5];
 console.log("Before sorting:", numbers);
 const result = quickSort([...numbers]);
 console.log("After sorting:", result);`,
+const numbers = [10, 7, 8, 9, 1, 5];
+console.log("Before sorting:", numbers);
+const result = quickSort([...numbers]);
+console.log("After sorting:", result);`,
 
   python: `# Quick Sort in Python
 def quick_sort(arr, low=0, high=None):
@@ -56,6 +60,14 @@ numbers = [10, 7, 8, 9, 1, 5]
 print("Before sorting:", numbers)
 result = quick_sort(numbers)
 print("After sorting:", result)`,
+
+numbers=[10,7,8,9,1,5]
+
+print("Before sorting:",numbers)
+
+quick_sort(numbers)
+
+print("After sorting:",numbers)`,
 
   java: `// Quick Sort in Java
 public class QuickSort {
@@ -154,8 +166,8 @@ int partition(vector<int>& arr, int low, int high) {
 void quickSort(vector<int>& arr, int low, int high) {
     if (low < high) {
         int pivotIndex = partition(arr, low, high);
-        quickSort(arr, low, pivot_index - 1);
-        quickSort(arr, pivot_index + 1, high);
+        quickSort(arr, low, pivotIndex - 1);
+        quickSort(arr, pivotIndex + 1, high);
     }
 }
 
