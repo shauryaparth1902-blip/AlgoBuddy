@@ -4,10 +4,14 @@ import { gsap } from "gsap";
 import ArrayGenerator from "@/app/components/ui/randomArray";
 import CustomArrayInput from "@/app/components/ui/customArrayInput";
 import { saveToStorage, loadFromStorage, removeFromStorage } from "@/utils/storage";
-import useVisualizerKeyboard from "@/app/hooks/useVisualizerKeyboard";       // ← NEW
-import KeyboardShortcutsLegend from "@/app/components/ui/KeyboardShortcutsLegend"; // ← NEW
-import { AnimatePresence } from "framer-motion";
+import useVisualizerKeyboard from "@/app/hooks/useVisualizerKeyboard";
+import usePlayback from "@/app/hooks/usePlayback";
 import ExecutionSummaryCard from "@/app/components/ui/ExecutionSummaryCard";
+import PlaybackControls from "@/app/components/ui/PlaybackControls";
+import ChallengeModePanel, {
+  createOptions,
+  useSortingChallenge,
+} from "@/app/visualizer/sorting/components/ChallengeMode";
 
 const getFontSize = (value) => {
   const len = String(value).length;
@@ -16,11 +20,37 @@ const getFontSize = (value) => {
   return "text-xs";
 };
 
+const createBubbleSwapQuestion = (arr, j) => {
+  const correctLabel = `${arr[j]} and ${arr[j + 1]} (indices ${j} and ${j + 1})`;
+  const options = createOptions(correctLabel, [
+    j > 0 ? `${arr[j - 1]} and ${arr[j]} (indices ${j - 1} and ${j})` : null,
+    j + 2 < arr.length ? `${arr[j + 1]} and ${arr[j + 2]} (indices ${j + 1} and ${j + 2})` : null,
+    "No swap will happen",
+  ]);
+
+  return {
+    prompt: "Which two elements will swap next?",
+    options,
+    correctOptionId: "correct",
+    explanation: `${arr[j]} is greater than ${arr[j + 1]}, so Bubble Sort swaps adjacent indices ${j} and ${j + 1}.`,
+  };
+};
+
 const BubbleSortVisualizer = () => {
   const [sorting, setSorting] = useState(false);
   const [sorted, setSorted] = useState(false);
   const [array, setArray] = useState(() => loadFromStorage("bubble-array", []));
-  const [speed, setSpeed] = useState(() => loadFromStorage("bubble-speed", 1));
+  const [challengeEnabled, setChallengeEnabled] = useState(false);
+  const {
+    isPaused,
+    speed,
+    speedRef,
+    setSpeed,
+    togglePlayPause,
+    increaseSpeed,
+    decreaseSpeed,
+    checkPause,
+  } = usePlayback(loadFromStorage("bubble-speed", 1));
   const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
 
@@ -30,11 +60,17 @@ const BubbleSortVisualizer = () => {
   const [comparisons, setComparisons] = useState(0);
   const [swaps, setSwaps] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
-  const [executionTime, setExecutionTime] = useState(0);
   const [currentIndices, setCurrentIndices] = useState({ i: -1, j: -1 });
   const animationRef = useRef(null);
   const isSortingRef = useRef(false);
   const resolveRef = useRef(null);
+  const {
+    activeQuestion,
+    askChallenge,
+    resetChallengeStats,
+    stats: challengeStats,
+    submitAnswer,
+  } = useSortingChallenge(challengeEnabled);
 
   const handleArrayGenerated = (newArray) => {
     setArray(newArray);
@@ -44,20 +80,22 @@ const BubbleSortVisualizer = () => {
 
   const resetStats = () => {
     setComparisons(0);
+    setShowSummary(false);
     setSwaps(0);
     setCurrentStep(0);
     setTotalSteps(0);
     setCurrentIndices({ i: -1, j: -1 });
-    setShowSummary(false);
-    setExecutionTime(0);
+    resetChallengeStats();
     if (animationRef.current) clearTimeout(animationRef.current);
   };
 
-  const cancellableDelay = () =>
-    new Promise((resolve) => {
+  const cancellableDelay = async () => {
+    await new Promise((resolve) => {
       resolveRef.current = resolve;
-      animationRef.current = setTimeout(resolve, 1000 / speed);
+      animationRef.current = setTimeout(resolve, 1000 / speedRef.current);
     });
+    await checkPause();
+  };
 
   const bubbleSort = async () => {
     if (sorted || sorting || array.length === 0) return;
@@ -70,21 +108,6 @@ const BubbleSortVisualizer = () => {
     let tempComparisons = 0;
     setTotalSteps(Math.floor((n * (n - 1)) / 2));
     setCurrentStep(0);
-
-    // Measure actual execution time
-    const tempArr = [...array];
-    const startTime = performance.now();
-    for (let i = 0; i < n - 1; i++) {
-      for (let j = 0; j < n - i - 1; j++) {
-        if (tempArr[j] > tempArr[j + 1]) {
-          let temp = tempArr[j];
-          tempArr[j] = tempArr[j + 1];
-          tempArr[j + 1] = temp;
-        }
-      }
-    }
-    const endTime = performance.now();
-    setExecutionTime(endTime - startTime);
 
     for (let i = 0; i < n - 1; i++) {
       let swapped = false;
@@ -100,6 +123,9 @@ const BubbleSortVisualizer = () => {
         if (!isSortingRef.current) return;
 
         if (arr[j] > arr[j + 1]) {
+          await askChallenge(createBubbleSwapQuestion(arr, j));
+          if (!isSortingRef.current) return;
+
           const bars = document.querySelectorAll(".bar");
           const bar1 = bars[j];
           const bar2 = bars[j + 1];
@@ -158,13 +184,14 @@ const BubbleSortVisualizer = () => {
 
   const handleSpeedChange = useCallback((nextSpeed) => {
     setSpeed(nextSpeed);
-  }, []);
+  }, [setSpeed]);
 
-  // ── Wire up keyboard shortcuts ──────────────────────────────────────────
+  // keyboard shortcuts
   useVisualizerKeyboard({
     onStart:       handleStart,
     onReset:       handleReset,
     onSpeedChange: handleSpeedChange,
+    onTogglePlayPause: togglePlayPause,
     speed,
     sorting,
     sorted,
@@ -182,7 +209,7 @@ const BubbleSortVisualizer = () => {
         <div className="bg-white dark:bg-neutral-950 p-4 sm:p-6 rounded-lg shadow-md mb-6 md:mb-8 border border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
             <div className="flex flex-col gap-1">
-              <ArrayGenerator onGenerate={handleArrayGenerated} disabled={sorting} />
+              <ArrayGenerator onGenerate={handleArrayGenerated} disabled={sorting} isPrimary={array.length === 0} />
               <CustomArrayInput
                 onUseCustomArray={(arr) => {
                   setArray(arr);
@@ -197,39 +224,57 @@ const BubbleSortVisualizer = () => {
               <button
                 onClick={bubbleSort}
                 disabled={!array.length || sorting || sorted}
-                className="w-full disabled:opacity-75 bg-none bg-green-500 px-4 py-2 rounded shadow-sm transition-all duration-300 text-sm sm:text-base text-black"
+                className="w-full disabled:opacity-75 bg-none bg-[#a435f0] hover:bg-[#8f2cd6] px-4 py-2 rounded shadow-sm transition-all duration-300 text-sm sm:text-base text-white"
               >
                 {sorting ? "Sorting..." : "Start Bubble Sort"}
               </button>
               <button
                 onClick={reset}
-                className="w-full bg-none text-white bg-red-500 px-4 py-2 rounded transition-colors text-sm sm:text-base"
+                className="w-full bg-none text-[#a435f0] border border-[#a435f0] hover:bg-[#f3e8ff] dark:hover:bg-[#a435f0]/20 px-4 py-2 rounded transition-colors text-sm sm:text-base"
               >
                 Reset All
               </button>
             </div>
           </div>
 
-          {/* Speed controls */}
-          <div className="flex items-center gap-4 mb-4">
-            <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Speed:</span>
-            <input
-              type="range"
-              min="0.5"
-              max="5"
-              step="0.5"
-              value={speed}
-              onChange={(e) => setSpeed(parseFloat(e.target.value))}
-              className="w-24 sm:w-32"
-              disabled={sorting}
+          {/* Playback & Speed controls */}
+          {sorting && (
+            <PlaybackControls
+              isPaused={isPaused}
+              onTogglePlayPause={togglePlayPause}
+              speed={speed}
+              onIncreaseSpeed={increaseSpeed}
+              onDecreaseSpeed={decreaseSpeed}
+              onSpeedChange={setSpeed}
             />
-            <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">{speed}x</span>
+          )}
 
-            {/* ── Keyboard legend ── placed at the end of the speed row ── */}
-            <div className="ml-auto">                  {/* ← NEW */}
-              <KeyboardShortcutsLegend />               {/* ← NEW */}
-            </div>                                      {/* ← NEW */}
-          </div>
+          {!sorting && (
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Speed:</span>
+              <input
+                type="range"
+                min="0.5"
+                max="5"
+                step="0.5"
+                value={speed}
+                onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                className="w-24 sm:w-32"
+                disabled={sorting}
+              />
+              <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">{speed}x</span>
+            </div>
+          )}
+
+          <ChallengeModePanel
+            activeQuestion={activeQuestion}
+            disabled={sorting}
+            enabled={challengeEnabled}
+            onEnabledChange={setChallengeEnabled}
+            onResetStats={resetChallengeStats}
+            onSubmitAnswer={submitAnswer}
+            stats={challengeStats}
+          />
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 text-sm sm:text-base">
@@ -292,21 +337,19 @@ const BubbleSortVisualizer = () => {
             </div>
           )}
         </div>
-      </div>
 
-      <AnimatePresence>
-        {sorted && showSummary && (
+        {showSummary && (
           <ExecutionSummaryCard
-            title="Bubble Sort Complete!"
+            title="Sorting Complete"
             metrics={[
               { label: "Elements Sorted", value: array.length },
               { label: "Total Comparisons", value: comparisons },
-              { label: "Total Swaps", value: swaps }
+              { label: "Total Swaps", value: swaps },
             ]}
             onClose={() => setShowSummary(false)}
           />
         )}
-      </AnimatePresence>
+      </div>
     </main>
   );
 };

@@ -3,7 +3,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { gsap } from "gsap";
 import ArrayGenerator from "@/app/components/ui/randomArray";
 import CustomArrayInput from "@/app/components/ui/customArrayInput";
-import { AnimatePresence } from "framer-motion";
+import useVisualizerKeyboard from "@/app/hooks/useVisualizerKeyboard";
+import usePlayback from "@/app/hooks/usePlayback";
+import PlaybackControls from "@/app/components/ui/PlaybackControls";
 import ExecutionSummaryCard from "@/app/components/ui/ExecutionSummaryCard";
 
 const getFontSize = (value) => {
@@ -17,11 +19,19 @@ const QuickSortVisualizer = () => {
   const [array, setArray] = useState([]);
   const [sorting, setSorting] = useState(false);
   const [sorted, setSorted] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const {
+    isPaused,
+    speed,
+    speedRef,
+    setSpeed,
+    togglePlayPause,
+    increaseSpeed,
+    decreaseSpeed,
+    checkPause,
+  } = usePlayback(1);
   const [comparisons, setComparisons] = useState(0);
   const [swaps, setSwaps] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
-  const [executionTime, setExecutionTime] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
   const [currentIndices, setCurrentIndices] = useState({
@@ -39,6 +49,7 @@ const QuickSortVisualizer = () => {
   // Reset all stats and state
   const resetStats = () => {
     setComparisons(0);
+    setShowSummary(false);
     setSwaps(0);
     setCurrentStep(0);
     setTotalSteps(0);
@@ -50,19 +61,19 @@ const QuickSortVisualizer = () => {
       stack: [],
       partitions: [],
     });
-    setShowSummary(false);
-    setExecutionTime(0);
     if (animationRef.current) {
       clearTimeout(animationRef.current);
     }
   };
 
   // Helper: cancellable delay
-  const cancellableDelay = (ms) =>
-    new Promise((resolve) => {
+  const cancellableDelay = async (ms) => {
+    await new Promise((resolve) => {
       resolveRef.current = resolve;
-      animationRef.current = setTimeout(resolve, ms);
+      animationRef.current = setTimeout(resolve, ms / speedRef.current);
     });
+    await checkPause();
+  };
 
   // Partition function for Quick Sort
   const partition = async (arr, low, high) => {
@@ -84,7 +95,7 @@ const QuickSortVisualizer = () => {
       }));
 
       setComparisons((prev) => prev + 1);
-      await cancellableDelay(1000 / speed);
+      await cancellableDelay(1000);
       if (!isSortingRef.current) return -1;
 
       if (arr[j] < pivot) {
@@ -101,7 +112,7 @@ const QuickSortVisualizer = () => {
             { scale: 1.1, opacity: 1, duration: 0.3, stagger: 0.05 }
           );
         }
-        await cancellableDelay(1000 / speed);
+        await cancellableDelay(1000);
         if (!isSortingRef.current) return -1;
       }
     }
@@ -118,7 +129,7 @@ const QuickSortVisualizer = () => {
         { scale: 1.1, opacity: 1, duration: 0.3, stagger: 0.05 }
       );
     }
-    await cancellableDelay(1000 / speed);
+    await cancellableDelay(1000);
     if (!isSortingRef.current) return -1;
 
     return i + 1;
@@ -134,32 +145,6 @@ const QuickSortVisualizer = () => {
     const n = arr.length;
     setTotalSteps(Math.floor((n * (n - 1)) / 2));
     setCurrentStep(0);
-
-    const tempArr = [...array];
-    const startTime = performance.now();
-    const syncPartition = (arr, low, high) => {
-      let pivot = arr[high];
-      let i = low - 1;
-      for (let j = low; j < high; j++) {
-        if (arr[j] < pivot) {
-          i++;
-          [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-      }
-      [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
-      return i + 1;
-    };
-    const syncQuickSort = (arr, low, high) => {
-      if (low < high) {
-        let pi = syncPartition(arr, low, high);
-        syncQuickSort(arr, low, pi - 1);
-        syncQuickSort(arr, pi + 1, high);
-      }
-    };
-    syncQuickSort(tempArr, 0, tempArr.length - 1);
-    const endTime = performance.now();
-    setExecutionTime(endTime - startTime);
-
     let stack = [];
     let low = 0;
     let high = arr.length - 1;
@@ -192,7 +177,7 @@ const QuickSortVisualizer = () => {
         stack.push({ low: pi + 1, high });
         stack.push({ low, high: pi - 1 });
 
-        await cancellableDelay(1000 / speed);
+        await cancellableDelay(1000);
         if (!isSortingRef.current) return;
 
         // Remove completed partition
@@ -221,7 +206,6 @@ const QuickSortVisualizer = () => {
     });
   };
 
-  // Reset everything
   const reset = () => {
     // Unblock any suspended async loop immediately
     isSortingRef.current = false;
@@ -246,6 +230,17 @@ const QuickSortVisualizer = () => {
       }
     };
   }, []);
+
+  // keyboard shortcuts
+  useVisualizerKeyboard({
+    onStart:       quickSort,
+    onReset:       reset,
+    onSpeedChange: setSpeed,
+    onTogglePlayPause: togglePlayPause,
+    speed,
+    sorting,
+    sorted,
+  });
 
   // Function to render partition visualization
   const renderPartitions = () => {
@@ -330,6 +325,7 @@ const QuickSortVisualizer = () => {
                   resetStats();
                 }}
                 disabled={sorting}
+                isPrimary={array.length === 0}
               />
               <CustomArrayInput
                 onUseCustomArray={(newArray) => {
@@ -344,34 +340,46 @@ const QuickSortVisualizer = () => {
               <button
                 onClick={quickSort}
                 disabled={!array.length || sorting || sorted}
-                className="w-full disabled:opacity-75 bg-none bg-green-500 px-4 py-2 rounded shadow-sm transition-all duration-300 text-sm sm:text-base text-black"
+                className="w-full disabled:opacity-75 bg-none bg-[#a435f0] hover:bg-[#8f2cd6] px-4 py-2 rounded shadow-sm transition-all duration-300 text-sm sm:text-base text-white"
               >
                 {sorting ? "Sorting..." : "Start Quick Sort"}
               </button>
               <button
                 onClick={reset}
-                className="w-full bg-none text-white bg-red-500 px-4 py-2 rounded transition-colors text-sm sm:text-base"
+                className="w-full bg-none text-[#a435f0] border border-[#a435f0] hover:bg-[#f3e8ff] dark:hover:bg-[#a435f0]/20 px-4 py-2 rounded transition-colors text-sm sm:text-base"
               >
                 Reset All
               </button>
             </div>
           </div>
-
-          {/* Speed controls */}
-          <div className="flex items-center gap-4 mb-4">
-            <span className="text-gray-700 dark:text-gray-300">Speed:</span>
-            <input
-              type="range"
-              min="0.5"
-              max="5"
-              step="0.5"
-              value={speed}
-              onChange={(e) => setSpeed(parseFloat(e.target.value))}
-              className="w-32"
-              disabled={sorting}
+          {/* Playback & Speed controls */}
+          {sorting && (
+            <PlaybackControls
+              isPaused={isPaused}
+              onTogglePlayPause={togglePlayPause}
+              speed={speed}
+              onIncreaseSpeed={increaseSpeed}
+              onDecreaseSpeed={decreaseSpeed}
+              onSpeedChange={setSpeed}
             />
-            <span className="text-gray-700 dark:text-gray-300">{speed}x</span>
-          </div>
+          )}
+
+          {!sorting && (
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Speed:</span>
+              <input
+                type="range"
+                min="0.5"
+                max="5"
+                step="0.5"
+                value={speed}
+                onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                className="w-24 sm:w-32"
+                disabled={sorting}
+              />
+              <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">{speed}x</span>
+            </div>
+          )}
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 text-sm">
@@ -459,19 +467,18 @@ const QuickSortVisualizer = () => {
           {renderPartitions()}
         </div>
       </div>
-      <AnimatePresence>
-        {sorted && showSummary && (
-          <ExecutionSummaryCard
-            title="Quick Sort Complete!"
-            metrics={[
-              { label: "Elements Sorted", value: array.length },
-              { label: "Total Comparisons", value: comparisons },
-              { label: "Total Swaps", value: swaps }
-            ]}
-            onClose={() => setShowSummary(false)}
-          />
-        )}
-      </AnimatePresence>
+
+      {showSummary && (
+        <ExecutionSummaryCard
+          title="Sorting Complete"
+          metrics={[
+            { label: "Elements Sorted", value: array.length },
+            { label: "Total Comparisons", value: comparisons },
+            { label: "Total Swaps", value: swaps },
+          ]}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </main>
   );
 };

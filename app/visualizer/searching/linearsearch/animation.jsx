@@ -3,7 +3,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import ResetButton from "@/app/components/ui/resetButton";
 import GoButton from "@/app/components/ui/goButton";
-import { AnimatePresence } from "framer-motion";
+import useVisualizerKeyboard from "@/app/hooks/useVisualizerKeyboard";
+import usePlayback from "@/app/hooks/usePlayback";
+import PlaybackControls from "@/app/components/ui/PlaybackControls";
 import ExecutionSummaryCard from "@/app/components/ui/ExecutionSummaryCard";
 
 const getFontSize = (value) => {
@@ -22,12 +24,21 @@ const LinearSearch = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(""); // FIX: "success" | "error" | "warning"
+  const [stepCount, setStepCount] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
-  const [comparisons, setComparisons] = useState(0);
-  const [executionTime, setExecutionTime] = useState(0);
-  const [speed, setSpeed] = useState(1);
-  const speedRef = useRef(1);
+  const {
+    isPaused,
+    speed,
+    speedRef,
+    setSpeed,
+    togglePlayPause,
+    increaseSpeed,
+    decreaseSpeed,
+    checkPause,
+  } = usePlayback(1);
   const animationRef = useRef(null);
+  const resolveRef = useRef(null);
+  const isSearchingRef = useRef(false);
   const formRef = useRef(null);
   const elementRefs = useRef([]);
 
@@ -38,15 +49,19 @@ const LinearSearch = () => {
   }, []);
 
   const handleReset = () => {
+    isSearchingRef.current = false;
     clearTimeout(animationRef.current);
+    if (resolveRef.current) {
+      resolveRef.current();
+      resolveRef.current = null;
+    }
     setArray([]);
     setCurrentIndex(-1);
     setFoundIndex(-1);
     setMessage("");
     setMessageType(""); // FIX: reset message type
+    setStepCount(0);
     setShowSummary(false);
-    setComparisons(0);
-    setExecutionTime(0);
     setIsAnimating(false);
     setArrayElements("");
     setTarget("");
@@ -114,36 +129,26 @@ const targetValue = parseInt(target);
     setFoundIndex(-1);
     setMessage("");
     setMessageType("");
-    setShowSummary(false);
-    setComparisons(0);
-
-    const tempArr = [...elements];
-    const startTime = performance.now();
-    for (let i = 0; i < tempArr.length; i++) {
-      if (tempArr[i] === targetValue) {
-        break;
-      }
-    }
-    const endTime = performance.now();
-    setExecutionTime(endTime - startTime);
 
     // start animation
     animateLinearSearch(elements, targetValue);
   };
 
-  const animateLinearSearch = (arr, targetValue) => {
-    let index = 0;
+  const cancellableDelay = async () => {
+    await new Promise((resolve) => {
+      resolveRef.current = resolve;
+      animationRef.current = setTimeout(resolve, 1500 / speedRef.current);
+    });
+    await checkPause();
+  };
 
-    const step = () => {
-      if (index >= arr.length) {
-        setMessage(`Element ${targetValue} not found in the array.`);
-        setMessageType("error"); // FIX: search result "not found" → red
-        setIsAnimating(false);
-        setShowSummary(true);
-        return;
-      }
+  const animateLinearSearch = async (arr, targetValue) => {
+    isSearchingRef.current = true;
 
+    for (let index = 0; index < arr.length; index++) {
+      if (!isSearchingRef.current) return;
       setCurrentIndex(index);
+      setStepCount(index + 1);
 
       // highlight current
       elementRefs.current.forEach((ref, idx) => {
@@ -157,41 +162,38 @@ const targetValue = parseInt(target);
         }
       });
 
-      const delay = 1500 / speedRef.current;
-      animationRef.current = setTimeout(() => {
-        setComparisons((prev) => prev + 1);
-        if (arr[index] === targetValue) {
-          setFoundIndex(index);
-          setMessage(`Element ${targetValue} found at index ${index}!`);
-          setMessageType("success"); // FIX: found → green
-          setIsAnimating(false);
-          setShowSummary(true);
-          gsap.to(elementRefs.current[index], { backgroundColor: "#22C55E", borderColor: "#15803D", duration: 0.3 });
-        } else {
-          index++;
-          step();
-        }
-      }, delay);
-    };
+      await cancellableDelay();
+      if (!isSearchingRef.current) return;
 
-    step();
+      if (arr[index] === targetValue) {
+        setFoundIndex(index);
+        setMessage(`Element ${targetValue} found at index ${index}!`);
+        setMessageType("success"); // FIX: found → green
+        setIsAnimating(false);
+        setShowSummary(true);
+        isSearchingRef.current = false;
+        gsap.to(elementRefs.current[index], { backgroundColor: "#22C55E", borderColor: "#15803D", duration: 0.3 });
+        return;
+      }
+    }
+
+    if (!isSearchingRef.current) return;
+    setMessage(`Element ${targetValue} not found in the array.`);
+    setMessageType("error"); // FIX: search result "not found" → red
+    setIsAnimating(false);
+    setShowSummary(true);
+    isSearchingRef.current = false;
   };
 
-  const increaseSpeed = () => {
-    setSpeed((prev) => {
-      const next = Math.min(prev + 0.5, 5);
-      speedRef.current = next;
-      return next;
-    });
-  };
-
-  const decreaseSpeed = () => {
-    setSpeed((prev) => {
-      const next = Math.max(prev - 0.5, 0.5);
-      speedRef.current = next;
-      return next;
-    });
-  };
+  useVisualizerKeyboard({
+    onStart: () => {}, // Handled by Go button
+    onReset: handleReset,
+    onSpeedChange: setSpeed,
+    onTogglePlayPause: togglePlayPause,
+    speed,
+    sorting: isAnimating,
+    sorted: foundIndex !== -1 || messageType === "error",
+  });
 
   // FIX: derive message box classes from messageType instead of foundIndex
   const messageClass =
@@ -261,25 +263,14 @@ const targetValue = parseInt(target);
         </div>
 
         {isAnimating && (
-          <div className="flex items-center justify-between mb-4">
-            <button
-              type="button"
-              onClick={decreaseSpeed}
-              className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
-              disabled={speed <= 0.5}
-            >
-              -
-            </button>
-            <span className="text-gray-700 dark:text-gray-300">Speed: {speed}x</span>
-            <button
-              type="button"
-              onClick={increaseSpeed}
-              className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
-              disabled={speed >= 5}
-            >
-              +
-            </button>
-          </div>
+          <PlaybackControls
+            isPaused={isPaused}
+            onTogglePlayPause={togglePlayPause}
+            speed={speed}
+            onIncreaseSpeed={increaseSpeed}
+            onDecreaseSpeed={decreaseSpeed}
+            onSpeedChange={setSpeed}
+          />
         )}
       </form>
 
@@ -335,19 +326,17 @@ const targetValue = parseInt(target);
         </div>
       )}
 
-      <AnimatePresence>
-        {!isAnimating && showSummary && (
-          <ExecutionSummaryCard
-            title="Search Complete!"
-            metrics={[
-              { label: "Array Size", value: array.length },
-              { label: "Target Found", value: foundIndex !== -1 ? "Yes" : "No" },
-              { label: "Total Comparisons", value: comparisons }
-            ]}
-            onClose={() => setShowSummary(false)}
-          />
-        )}
-      </AnimatePresence>
+      {showSummary && (
+        <ExecutionSummaryCard
+          title="Search Complete"
+          metrics={[
+            { label: "Array Size", value: array.length },
+            { label: "Target Found", value: foundIndex !== -1 ? "Yes" : "No" },
+            { label: "Total Comparisons", value: stepCount },
+          ]}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </main>
   );
 };
