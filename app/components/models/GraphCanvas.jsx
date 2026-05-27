@@ -1,4 +1,4 @@
-// app/components/models/GraphCanvas.jsx
+﻿// app/components/models/GraphCanvas.jsx
 "use client";
 import { useRef, useState, useCallback } from "react";
 
@@ -187,11 +187,11 @@ export default function GraphCanvas({
 
         const isActive = isActiveEdge(edge) || currentNode === edge.from || currentNode === edge.to;
         const edgeColor = isActive ? "#f97316" : "#6b7280";
-        const markerEnd = isDirected
+        const markerEnd = edge.directed
           ? isActive ? "url(#arrowhead-active)" : "url(#arrowhead)"
           : undefined;
 
-        const { x: ex, y: ey } = isDirected
+        const { x: ex, y: ey } = edge.directed
           ? edgeEndpoint(src.x, src.y, tgt.x, tgt.y, NODE_RADIUS)
           : { x: tgt.x, y: tgt.y };
 

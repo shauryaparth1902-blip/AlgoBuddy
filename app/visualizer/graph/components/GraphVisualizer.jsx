@@ -431,7 +431,7 @@ export default function GraphVisualizer({ algorithm = "bfs", startNode: initialS
                 )}
                 {currentFrameData.result && currentFrameData.result.length > 0 && (
                   <div className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-1.5 text-xs font-bold text-success">
-                    Order: {currentFrameData.result.join(" → ")}
+                    Order: {currentFrameData.result.join(" ??? ")}
                   </div>
                 )}
               </div>
@@ -442,8 +442,6 @@ export default function GraphVisualizer({ algorithm = "bfs", startNode: initialS
         <GraphCanvas
           nodes={nodes}
           edges={edges}
-          onUpdateNodes={setNodes}
-          onUpdateEdges={setEdges}
           onAddNode={addNode}
           onAddEdge={addEdge}
           onRemoveNode={removeNode}
