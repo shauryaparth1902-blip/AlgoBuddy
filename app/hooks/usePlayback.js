@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import useVisualizerKeyboard from "@/app/hooks/useVisualizerKeyboard";
 
 export default function usePlayback(initialSpeed = 1) {
   const [isPaused, setIsPaused] = useState(false);

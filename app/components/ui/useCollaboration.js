@@ -273,6 +273,11 @@ export function useCollaboration({
     return nextSession;
   }, [cleanupTransport, processEnvelope, sendEnvelope]);
 
+  const grantControl = useCallback((nextPresenterId) => {
+    const presenter = nextPresenterId || clientId;
+    return sendEnvelope("control:grant", { presenterId: presenter });
+  }, [clientId, sendEnvelope]);
+
   const createSession = useCallback(async ({ title, visibility, password, module, createdBy }) => {
     const data = await requestJson("/api/sessions", {
       method: "POST",
@@ -324,11 +329,6 @@ export function useCollaboration({
       requestedBy: clientId,
       requestedByName: currentDisplayNameRef.current,
     });
-  }, [clientId, sendEnvelope]);
-
-  const grantControl = useCallback((nextPresenterId) => {
-    const presenter = nextPresenterId || clientId;
-    return sendEnvelope("control:grant", { presenterId: presenter });
   }, [clientId, sendEnvelope]);
 
   const addAnnotation = useCallback(({ timeIndex, text }) => {
