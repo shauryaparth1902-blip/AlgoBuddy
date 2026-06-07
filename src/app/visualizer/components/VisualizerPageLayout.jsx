@@ -42,6 +42,7 @@ export default function VisualizerPageLayout({
   moduleSectionClassName = "px-6 md:px-12 my-12",
   exploreSectionClassName = "px-6",
 }) {
+  
   return (
     <CollaborationProvider>
       <LiveCursors />
