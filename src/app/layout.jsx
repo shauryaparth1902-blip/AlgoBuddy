@@ -7,7 +7,7 @@ import ClientLayoutWrapper from "@/app/components/ui/ClientLayoutWrapper";
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 export const metadata = {
-  metadataBase: new URL("https://www.algobuddy.me"),
+  metadataBase: new URL("https://algobuddy.in"),
   title: "AlgoBuddy | Visualize & Learn DSA the Smart Way",
   description:
     "Master Data Structures and Algorithms with interactive visualizations. Perfect for students, beginners, and interview prep. Visualize Stack, Queue, Tree, Graph, Sorting & more.",
@@ -29,13 +29,13 @@ export const metadata = {
   publisher: "AlgoBuddy",
   robots: "index, follow",
   icons: {
-    icon: "/favicon.svg",
+    icon: "/icon.svg",
   },
   openGraph: {
     title: "AlgoBuddy | Visualize & Learn DSA the Smart Way",
     description:
       "Interactive platform to visualize and learn DSA concepts easily. Great for students and interview preparation.",
-    url: "https://www.algobuddy.me/",
+    url: "https://algobuddy.in/",
     siteName: "AlgoBuddy",
     images: [
       {
