@@ -10,8 +10,6 @@ import { createVisualizerPaths } from "@/app/visualizer/components/VisualizerPag
 import { generatePreOrderSteps } from "@/features/algorithms/tree/preOrderLogic";
 import { generateInOrderSteps } from "@/features/algorithms/tree/inOrderLogic";
 import { generatePreOrderSteps } from "@/features/algorithms/tree/preOrderLogic";
-import { generatePostOrderSteps } from "@/features/algorithms/tree/postOrderLogic";
-import { generateLevelOrderSteps } from "@/features/algorithms/tree/levelOrderLogic";
 import { generateMorrisSteps } from "@/features/algorithms/tree/morrisLogic";
 
 class TreeNode {
