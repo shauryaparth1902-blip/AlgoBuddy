@@ -173,7 +173,8 @@ export default function PracticePage() {
         if (useSpringBoot) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.access_token) {
-            const res = await fetch("http://localhost:8080/api/v1/practice/progress", {
+            const baseUrl = process.env.NEXT_PUBLIC_SPRING_BOOT_API_URL || "http://localhost:8080";
+            const res = await fetch(`${baseUrl}/api/v1/practice/progress`, {
               headers: { "Authorization": `Bearer ${session.access_token}` }
             });
             if (res.ok) {
@@ -362,7 +363,8 @@ export default function PracticePage() {
         
         if (session?.access_token) {
           console.log("[DEBUG] Making POST request to Spring Boot backend...");
-          const res = await fetch("http://localhost:8080/api/v1/practice/progress", {
+          const baseUrl = process.env.NEXT_PUBLIC_SPRING_BOOT_API_URL || "http://localhost:8080";
+          const res = await fetch(`${baseUrl}/api/v1/practice/progress`, {
             method: "POST",
             headers: { 
               "Authorization": `Bearer ${session.access_token}`,

@@ -11,7 +11,8 @@ async function apiFetch(url, options = {}) {
   const headers = { "Content-Type": "application/json", ...options.headers };
 
   if (process.env.NEXT_PUBLIC_USE_SPRING_BOOT_API === "true") {
-    finalUrl = "http://localhost:8080" + url.replace("/api/bookmarks", "/api/v1/bookmarks");
+    const baseUrl = process.env.NEXT_PUBLIC_SPRING_BOOT_API_URL || "http://localhost:8080";
+    finalUrl = baseUrl + url.replace("/api/bookmarks", "/api/v1/bookmarks");
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
       headers["Authorization"] = `Bearer ${session.access_token}`;
