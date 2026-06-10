@@ -31,6 +31,7 @@ const Animation = () => {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [pendingStart, setPendingStart] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
 
   const {
     isPaused,
@@ -83,6 +84,8 @@ const Animation = () => {
       setIsAnimating(false);
       setMessage("Visualization completed.");
       setMessageType("success");
+      setShowQuiz(true);
+
       return;
     }
 
@@ -125,6 +128,7 @@ const Animation = () => {
       setIsAnimating(false);
       setMessage("Visualization completed.");
       setMessageType("success");
+      setShowQuiz(true);
     }
   }, [speedRef, isPausedRef]);
 
@@ -318,6 +322,32 @@ const Animation = () => {
           <p className="text-center font-medium">{message}</p>
         </div>
       )}
+
+      {showQuiz && (
+  <div className="max-w-4xl mx-auto mb-6 bg-white dark:bg-gray-800 p-5 rounded-xl border">
+    <h3 className="text-lg font-bold mb-3">
+      🧠 Quick Challenge
+    </h3>
+
+    <p className="mb-3">
+      What is the time complexity of Sliding Window?
+    </p>
+
+    <div className="flex gap-3 flex-wrap">
+      <button className="px-4 py-2 rounded-lg bg-gray-200">
+        O(n²)
+      </button>
+
+      <button className="px-4 py-2 rounded-lg bg-green-500 text-white">
+        O(n)
+      </button>
+
+      <button className="px-4 py-2 rounded-lg bg-gray-200">
+        O(log n)
+      </button>
+    </div>
+  </div>
+)}
 
       {dataArray.length > 0 && (
         <div className="max-w-5xl mx-auto space-y-6">
