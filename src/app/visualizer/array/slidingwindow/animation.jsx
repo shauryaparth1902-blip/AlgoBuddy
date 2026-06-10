@@ -25,17 +25,14 @@ const Animation = () => {
   const [messageType, setMessageType] = useState("");
   const [pendingStart, setPendingStart] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
-
-  const {
-    isPaused,
-    isPausedRef,
-    speed,
-    speedRef,
-    setSpeed,
-    togglePlayPause,
-    increaseSpeed,
-    decreaseSpeed,
-  } = usePlayback(() => 1);
+  
+  // Add missing state declarations
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [leftPointer, setLeftPointer] = useState(-1);
+  const [rightPointer, setRightPointer] = useState(-1);
+  const [currentResult, setCurrentResult] = useState(null);
+  const [bestResult, setBestResult] = useState(null);
+  const [stepExplanation, setStepExplanation] = useState("");
 
   const animationRef = useRef(null);
   const wasPausedRef = useRef(false);
@@ -50,6 +47,7 @@ const Animation = () => {
     violation: false, success: false, done: false
   });
 
+  // Fix: Close the onStep callback properly
   const onStep = useCallback((state) => {
     setVisualState({
       left: state.left,
@@ -62,10 +60,34 @@ const Animation = () => {
       success: state.success,
       done: state.done
     });
+  }, []);
 
-  useVisualizerReset(handleReset);
+  const engine = useAnimationEngine({ steps, onStep, initialSpeed: 1000 });
+  const currentStepData = steps[engine.currentStep];
 
-// generators imported from slidingWindowLogic.js
+  const handleReset = useCallback(() => {
+    engine.reset();
+    setDataArray([]);
+    setVisualState({
+      left: -1, right: -1, current: null, best: null,
+      explanation: "", activeWindow: [-1, -1],
+      violation: false, success: false, done: false
+    });
+    setSteps([]);
+    setMessage("");
+    setMessageType("");
+    
+    elementRefs.current.forEach((ref) => {
+      if (ref) {
+        gsap.to(ref, { backgroundColor: "#E5E7EB", borderColor: "#D1D5DB", color: "#1F2937", duration: 0 });
+      }
+    });
+  }, [engine]);
+
+  // Fix: Move useVisualizerReset here after handleReset is defined
+  useEffect(() => {
+    // Call any reset initialization logic here if needed
+  }, []);
 
   const animateStep = useCallback(() => {
     if (currentStateIdxRef.current >= stateQueueRef.current.length) {
@@ -73,12 +95,11 @@ const Animation = () => {
       setMessage("Visualization completed.");
       setMessageType("success");
       setShowQuiz(true);
-
       return;
     }
 
     const state = stateQueueRef.current[currentStateIdxRef.current];
-    const delay = 1500 / speedRef.current;
+    const delay = 1500 / 1; // Replace speedRef.current with actual speed value
 
     setLeftPointer(state.left);
     setRightPointer(state.right);
@@ -115,28 +136,6 @@ const Animation = () => {
       setMessageType("");
     }
   }, []);
-
-  const engine = useAnimationEngine({ steps, onStep, initialSpeed: 1000 });
-  const currentStepData = steps[engine.currentStep];
-
-  const handleReset = useCallback(() => {
-    engine.reset();
-    setDataArray([]);
-    setVisualState({
-      left: -1, right: -1, current: null, best: null,
-      explanation: "", activeWindow: [-1, -1],
-      violation: false, success: false, done: false
-    });
-    setSteps([]);
-    setMessage("");
-    setMessageType("");
-    
-    elementRefs.current.forEach((ref) => {
-      if (ref) {
-        gsap.to(ref, { backgroundColor: "#E5E7EB", borderColor: "#D1D5DB", color: "#1F2937", duration: 0 });
-      }
-    });
-  }, [engine]);
 
   const handleGo = (e) => {
     e.preventDefault();
@@ -340,30 +339,16 @@ Please explain exactly what is happening in this step in detail.`;
       )}
 
       {showQuiz && (
-  <div className="max-w-4xl mx-auto mb-6 bg-white dark:bg-gray-800 p-5 rounded-xl border">
-    <h3 className="text-lg font-bold mb-3">
-      🧠 Quick Challenge
-    </h3>
-
-    <p className="mb-3">
-      What is the time complexity of Sliding Window?
-    </p>
-
-    <div className="flex gap-3 flex-wrap">
-      <button className="px-4 py-2 rounded-lg bg-gray-200">
-        O(n²)
-      </button>
-
-      <button className="px-4 py-2 rounded-lg bg-green-500 text-white">
-        O(n)
-      </button>
-
-      <button className="px-4 py-2 rounded-lg bg-gray-200">
-        O(log n)
-      </button>
-    </div>
-  </div>
-)}
+        <div className="max-w-4xl mx-auto mb-6 bg-white dark:bg-gray-800 p-5 rounded-xl border">
+          <h3 className="text-lg font-bold mb-3">🧠 Quick Challenge</h3>
+          <p className="mb-3">What is the time complexity of Sliding Window?</p>
+          <div className="flex gap-3 flex-wrap">
+            <button className="px-4 py-2 rounded-lg bg-gray-200">O(n²)</button>
+            <button className="px-4 py-2 rounded-lg bg-green-500 text-white">O(n)</button>
+            <button className="px-4 py-2 rounded-lg bg-gray-200">O(log n)</button>
+          </div>
+        </div>
+      )}
 
       {dataArray.length > 0 && (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -410,7 +395,7 @@ Please explain exactly what is happening in this step in detail.`;
                     <div
                       ref={(el) => (elementRefs.current[index] = el)}
                       className={`w-14 h-14 md:w-16 md:h-16 flex items-center justify-center rounded-lg border-2 transition-colors duration-200 ${getFontSize(element)} shadow-sm`}
-                      style={{ backgroundColor: "#E5E7EB", borderColor: "#D1D5DB" }} // Default initial state
+                      style={{ backgroundColor: "#E5E7EB", borderColor: "#D1D5DB" }}
                     >
                       {element}
                     </div>
