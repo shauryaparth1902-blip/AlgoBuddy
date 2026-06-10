@@ -1,12 +1,18 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { gsap } from "gsap";
 import ResetButton from "@/app/components/ui/resetButton";
 import GoButton from "@/app/components/ui/goButton";
 import PlaybackControls from "@/app/components/ui/PlaybackControls";
 import useVisualizerKeyboard from "@/app/hooks/useVisualizerKeyboard";
 import { useAnimationEngine } from "@/lib/visualizer/useAnimationEngine";
-import { generateStatesFixedMax, generateStatesFixedAvg, generateStatesVarLongestSub, generateStatesVarSmallestSub } from "@/features/algorithms/array/slidingWindowLogic";
+import html2canvas from "html2canvas";
+import { 
+  generateStatesFixedMax, 
+  generateStatesFixedAvg, 
+  generateStatesVarLongestSub, 
+  generateStatesVarSmallestSub 
+} from "@/features/algorithms/array/slidingWindowLogic";
 
 const PROBLEMS = {
   FIXED_MAX: "fixed-max",
@@ -15,6 +21,7 @@ const PROBLEMS = {
   VAR_SMALLEST_SUB: "var-smallest-sub",
 };
 
+// Define component BEFORE using it
 const Animation = () => {
   const [problemType, setProblemType] = useState(PROBLEMS.FIXED_MAX);
   const [inputData, setInputData] = useState("2, 1, 5, 1, 3, 2");
@@ -23,8 +30,11 @@ const Animation = () => {
   const [dataArray, setDataArray] = useState([]);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
-  const elementRefs = useRef([]);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [discussion, setDiscussion] = useState("");
+  const visualizerRef = useRef(null);
 
+  const elementRefs = useRef([]);
   const [steps, setSteps] = useState([]);
   const [visualState, setVisualState] = useState({
     left: -1, right: -1, current: null, best: null,
@@ -32,7 +42,8 @@ const Animation = () => {
     violation: false, success: false, done: false
   });
 
-  const onStep = useCallback((state) => {
+  // Define callback handlers BEFORE using them
+  const handleStep = useCallback((state) => {
     setVisualState({
       left: state.left,
       right: state.right,
@@ -44,6 +55,17 @@ const Animation = () => {
       success: state.success,
       done: state.done
     });
+
+    const handleExportPNG = async () => {
+  if (!visualizerRef.current) return;
+
+  const canvas = await html2canvas(visualizerRef.current);
+
+  const link = document.createElement("a");
+  link.download = "sliding-window-visualization.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+};
 
     elementRefs.current.forEach((ref, index) => {
       if (!ref) return;
@@ -67,14 +89,9 @@ const Animation = () => {
     if (state.done) {
       setMessage("Visualization completed.");
       setMessageType("success");
-    } else {
-      setMessage("");
-      setMessageType("");
+      setShowQuiz(true);
     }
   }, []);
-
-  const engine = useAnimationEngine({ steps, onStep, initialSpeed: 1000 });
-  const currentStepData = steps[engine.currentStep];
 
   const handleReset = useCallback(() => {
     engine.reset();
@@ -87,13 +104,18 @@ const Animation = () => {
     setSteps([]);
     setMessage("");
     setMessageType("");
+    setShowQuiz(false);
     
     elementRefs.current.forEach((ref) => {
       if (ref) {
         gsap.to(ref, { backgroundColor: "#E5E7EB", borderColor: "#D1D5DB", color: "#1F2937", duration: 0 });
       }
     });
-  }, [engine]);
+  }, []);
+
+  // Initialize engine AFTER defining its dependencies
+  const engine = useAnimationEngine({ steps, onStep: handleStep, initialSpeed: 1000 });
+  const currentStepData = steps[engine.currentStep];
 
   const handleGo = (e) => {
     e.preventDefault();
@@ -296,7 +318,36 @@ Please explain exactly what is happening in this step in detail.`;
         </div>
       )}
 
+      {showQuiz && (
+        <div className="max-w-4xl mx-auto mb-6 bg-white dark:bg-gray-800 p-5 rounded-xl border">
+          <h3 className="text-lg font-bold mb-3">🧠 Quick Challenge</h3>
+          <p className="mb-3">What is the time complexity of Sliding Window?</p>
+          <div className="flex gap-3 flex-wrap">
+            <button className="px-4 py-2 rounded-lg bg-gray-200">O(n²)</button>
+            <button className="px-4 py-2 rounded-lg bg-green-500 text-white">O(n)</button>
+            <button className="px-4 py-2 rounded-lg bg-gray-200">O(log n)</button>
+          </div>
+        </div>
+      )}
+
+      {showQuiz && (
+        <div className="max-w-4xl mx-auto mb-6 bg-white dark:bg-gray-800 p-5 rounded-xl border">
+          <h3 className="text-lg font-bold mb-3">💬 Community Discussion</h3>
+          <textarea
+            value={discussion}
+            onChange={(e) => setDiscussion(e.target.value)}
+            placeholder="Ask a question or share your explanation..."
+            className="w-full p-3 border rounded-lg"
+            rows={4}
+          />
+          <button className="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg">
+            Post Discussion
+          </button>
+        </div>
+      )}
+
       {dataArray.length > 0 && (
+         <div ref={visualizerRef}>
         <div className="max-w-5xl mx-auto space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-gray-800 p-5 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col justify-center">
@@ -306,9 +357,13 @@ Please explain exactly what is happening in this step in detail.`;
                   Current Step
                 </span>
               </div>
-              <p className="text-gray-700 dark:text-gray-200 text-base leading-relaxed font-mono min-h-[3rem]">
-                {visualState.explanation || "Ready to begin..."}
-              </p>
+              </div>
+              <p
+  aria-live="polite"
+  className="text-gray-700 dark:text-gray-200 text-base leading-relaxed font-mono min-h-[3rem]"
+>
+  {visualState.explanation || "Ready to begin..."}
+</p>
             </div>
             
             <div className="bg-white dark:bg-gray-800 p-5 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm grid grid-cols-2 gap-4 text-center">
@@ -339,10 +394,12 @@ Please explain exactly what is happening in this step in detail.`;
                 return (
                   <div key={index} className="flex flex-col items-center relative">
                     <div
-                      ref={(el) => (elementRefs.current[index] = el)}
-                      className={`w-14 h-14 md:w-16 md:h-16 flex items-center justify-center rounded-lg border-2 transition-colors duration-200 ${getFontSize(element)} shadow-sm`}
-                      style={{ backgroundColor: "#E5E7EB", borderColor: "#D1D5DB" }} // Default initial state
-                    >
+  ref={(el) => (elementRefs.current[index] = el)}
+  tabIndex={0}
+  role="button"
+  aria-label={`Array element ${element} at index ${index}`}
+  className={`w-14 h-14 md:w-16 md:h-16 flex items-center justify-center rounded-lg border-2 transition-colors duration-200 ${getFontSize(element)} shadow-sm`}
+>
                       {element}
                     </div>
                     
@@ -384,4 +441,5 @@ Please explain exactly what is happening in this step in detail.`;
   );
 };
 
+// Export the component
 export default Animation;
